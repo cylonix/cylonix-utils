@@ -72,24 +72,24 @@ func setAppleConfig(config *Config) error {
 }
 
 func isJWTExpired(tokenString string) bool {
-    parser := jwt.Parser{}
-    token, _, err := parser.ParseUnverified(tokenString, jwt.MapClaims{})
-    if err != nil {
-        return true
-    }
+	parser := jwt.Parser{}
+	token, _, err := parser.ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
+		return true
+	}
 
-    claims, ok := token.Claims.(jwt.MapClaims)
-    if !ok {
-        return true
-    }
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return true
+	}
 
-    exp, ok := claims["exp"].(float64)
-    if !ok {
-        return true
-    }
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return true
+	}
 
-    // Add 5 minute buffer before expiration
-    return time.Now().Add(5 * time.Minute).After(time.Unix(int64(exp), 0))
+	// Add 5 minute buffer before expiration
+	return time.Now().Add(5 * time.Minute).After(time.Unix(int64(exp), 0))
 }
 
 func updateAppleJWTIfNeeded(config *Config) error {
@@ -98,8 +98,13 @@ func updateAppleJWTIfNeeded(config *Config) error {
 	}
 
 	if isJWTExpired(config.ClientSecret) {
+		keyContent, err := readApplePrivateKey(config.ClientSecret)
+		if err != nil {
+			return fmt.Errorf("failed to refresh Apple client secret JWT: %w", err)
+		}
+
 		newSecret, err := generateAppleClientSecret(
-			config.ClientSecret,
+			keyContent,
 			config.TeamID,
 			config.ClientID,
 			config.KeyID,

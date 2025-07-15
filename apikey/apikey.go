@@ -7,10 +7,11 @@ import (
 	"log"
 	"net/http"
 )
+
 const (
-	LoginCookieName  = "CYLONIX_MANAGER_LOGIN_COOKIE"
-	ApiKeyCookieName = "CYLONIX_MANAGER_API_KEY"
-	SecureLoginCookieName = "__Host-" + LoginCookieName
+	LoginCookieName        = "CYLONIX_MANAGER_LOGIN_COOKIE"
+	ApiKeyCookieName       = "CYLONIX_MANAGER_API_KEY"
+	SecureLoginCookieName  = "__Host-" + LoginCookieName
 	SecureApiKeyCookieName = "__Host-" + ApiKeyCookieName
 )
 
