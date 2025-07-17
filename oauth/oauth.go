@@ -4,6 +4,8 @@
 package oauth
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 )
@@ -66,16 +68,34 @@ type Claims struct {
 	IsPrivateEmail bool   `json:"is_private_email"` // Private relay email if user chose private email
 }
 
+func generatePseudoName(userID string) string {
+    // Create SHA-256 hash of the entire userID
+    hasher := sha256.New()
+    hasher.Write([]byte(userID))
+    hash := hex.EncodeToString(hasher.Sum(nil))
+
+    // Take first 12 characters for a good balance of uniqueness and readability
+    shortHash := hash[:12]
+    return shortHash
+}
+
 func (c *Claims) User(namespace, provider string) *User {
 	userID := c.UserID
 	email := c.Email
+
+	// Apple login with phone number based ID may not have email at all.
+	// Let's generate a unique login name based on userID instead.
+	loginName := email
+	if loginName == "" {
+		loginName = generatePseudoName(userID)+"@"+provider
+	}
 
 	return &User{
 		Namespace:     namespace,
 		Provider:      provider,
 		UserID:        provider + userID,
 		DisplayName:   c.Name,
-		LoginName:     email,
+		LoginName:     loginName,
 		Email:         email,
 		EmailVerified: c.EmailVerified,
 		ProfilePicURL: c.Picture,
