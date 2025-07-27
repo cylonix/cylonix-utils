@@ -117,6 +117,7 @@ type OauthStateTokenData struct {
 	OSVersion        string
 	DeviceModel      string
 	NetworkDomain    string
+	InviteCode       string
 	CreatedAt        time.Time
 }
 
