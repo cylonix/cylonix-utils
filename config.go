@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -145,7 +146,6 @@ type Configuration struct {
 
 	// To be refactored.
 	DomainName          string               `json:"domain_name"`
-	MeetingBaseURL      string               `json:"meeting_base_url,omitempty"`
 	DefaultWgServerName string               `json:"default_wg_server_name,omitempty"`
 	NatTraversal        []NatTraversalRegion `json:"nat_regions"`
 	PacFiles            []PacFile            `json:"internal_pac_files"`
@@ -167,6 +167,15 @@ func LoginURL(sessionID string) string {
 	}
 	log.Printf("Login base url: %v\n", base)
 	return base + "/login/" + sessionID
+}
+
+func InviteURL(inviteCode string) string {
+	base := os.Getenv("CYLONIX_UI_BASE_URL")
+	if base == "" {
+		base = gConfig.BaseURL
+	}
+	log.Printf("Invite base url: %v\n", base)
+	return base + "/invite?code=" + inviteCode
 }
 
 func LoginURLToSessionID(loginURL string) (string, error) {
@@ -302,7 +311,6 @@ func InitCfgFromViper(viperIn *gviper.Viper, setting ConfigCheckSetting) (*Confi
 		gConfig.PacFiles[i].IsValid = true
 	}
 
-
 	if gConfig.BaseURL == "" {
 		return nil, errors.New("daemon base URL is not set")
 	}
@@ -368,11 +376,21 @@ func checkOidcConfig(setting ConfigCheckSetting) error {
 }
 
 func UserApprovalStateSeeOtherURL(state string) string {
-	return gConfig.BaseURL + "/303/" + state
+	return gConfig.BaseURL + "/303/login/approval?state=" + state
 }
 
-func UserLoginErrorURL(err string) string {
-	return gConfig.BaseURL + "/303/" + err
+func UserLoginErrorURL(errMsg string) string {
+	params := url.Values{}
+	params.Add("error", errMsg)
+	encodedQuery := params.Encode()
+
+	baseURL, err := url.Parse(gConfig.BaseURL + "/303/login/error")
+	if err != nil {
+		log.Printf("failed to parse base URL (%v): %v", gConfig.BaseURL, err)
+		return ""
+	}
+	baseURL.RawQuery = encodedQuery
+	return baseURL.String()
 }
 
 func GetAuthProvider(namespace, provider string) (oauth.Provider, error) {
@@ -430,10 +448,6 @@ func GetPacFileList() []PacFile {
 
 func DefaultWgServerName() string {
 	return gConfig.DefaultWgServerName
-}
-
-func DefaultMeetingServer(namespace string) string {
-	return strings.ReplaceAll(namespace, ".", "-") + "-meet" + gConfig.MeetingBaseURL
 }
 
 func SendSmsCode(phone, code string) error {
