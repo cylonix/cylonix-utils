@@ -10,7 +10,7 @@ import (
 	"github.com/cylonix/utils/etcd"
 )
 
-// Use to communicate between supervisor and sase-manager/sase-tai/
+// Use to communicate between supervisor and sase-manager/sase-fw/
 type ApiKeyCache struct {
 	Key string
 }

@@ -11,7 +11,7 @@ var (
 	viper *gviper.Viper
 )
 
-func Init(viperIn *gviper.Viper) {
+func InitSetting(viperIn *gviper.Viper) {
 	viper = viperIn
 }
 

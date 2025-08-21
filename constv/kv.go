@@ -30,8 +30,8 @@ const (
 	//NativeConfig The converted configuration
 	NativeConfig = "native"
 
-	//TaiNamespace tai related config
-	TaiNamespace = "tai"
+	//TaiNamespace fw related config
+	TaiNamespace = "fw"
 
 	//GlobalResourceTypeNat nat global resource type
 	GlobalResourceTypeNat = "Nat"
@@ -53,10 +53,10 @@ const (
 	GlobalResourceTypeWg = "wg"
 	//GlobalResourceTypeWgNamespace wg config esource type
 	GlobalResourceTypeWgNamespace = "wg-namespace"
-	//GlobalResourceTypeTaiNamespace tai config esource type
-	GlobalResourceTypeTaiNamespace = "tai-namespace"
-	//GlobalResourceTypeTai tai config esource type
-	GlobalResourceTypeTai = "tai"
+	//GlobalResourceTypeTaiNamespace fw config esource type
+	GlobalResourceTypeTaiNamespace = "fw-namespace"
+	//GlobalResourceTypeTai fw config esource type
+	GlobalResourceTypeTai = "fw"
 	//GlobalResourceTypeApiKey pre-configed api keys
 	GlobalResourceTypeApiKey = "api-key"
 )
@@ -76,12 +76,12 @@ func GetWgConnConfigPrefix() string {
 	return strings.Join([]string{KVStoreNameSpace, WgNamespace, "instance", "conn_config"}, "/")
 }
 
-//GetTaiInstanceConfigKey return the key of tai instance, the name will placed into the suffix
-func GetTaiInstanceConfigKey(name string) string {
+//GetFwInstanceConfigKey return the key of fw instance, the name will placed into the suffix
+func GetFwInstanceConfigKey(name string) string {
 	return strings.Join([]string{KVStoreNameSpace, TaiNamespace, "instance", "conn_config", name}, "/")
 }
 
-//GetFwConnConfigPrefix tai instance config prefix
+//GetFwConnConfigPrefix fw instance config prefix
 func GetFwConnConfigPrefix() string {
 	return strings.Join([]string{KVStoreNameSpace, TaiNamespace, "instance", "conn_config"}, "/")
 }
@@ -106,7 +106,7 @@ func GetUserWgOriginConfigPrefix() string {
 	return strings.Join([]string{KVStoreNameSpace, UserNamespace, "config", WgNamespace, OriginalConfig}, "/")
 }
 
-//GetUserTaiOriginConfigPrefix return the tai config prefix for specific user
+//GetUserTaiOriginConfigPrefix return the fw config prefix for specific user
 func GetUserTaiOriginConfigPrefix() string {
 	return strings.Join([]string{KVStoreNameSpace, UserNamespace, "config", TaiNamespace, OriginalConfig}, "/")
 }
@@ -131,7 +131,7 @@ func GetUserWgOriginConfigKey(name string, popID string) string {
 	return strings.Join([]string{KVStoreNameSpace, UserNamespace, "config", WgNamespace, OriginalConfig, name, popID}, "/")
 }
 
-//GetUserTaiOriginConfigKey Put all the tai instance into one key
+//GetUserTaiOriginConfigKey Put all the fw instance into one key
 func GetUserTaiOriginConfigKey(name string, taiID string) string {
 	return strings.Join([]string{KVStoreNameSpace, UserNamespace, "config", TaiNamespace, OriginalConfig, name, taiID}, "/")
 }
