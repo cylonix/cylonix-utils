@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	idleTime        = time.Minute * 5
+	idleTime = time.Minute * 5
 )
 
 type SendmailInterface interface {

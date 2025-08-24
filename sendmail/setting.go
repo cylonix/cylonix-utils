@@ -12,7 +12,11 @@ var (
 )
 
 func InitSetting(viperIn *gviper.Viper) {
-	viper = viperIn
+	if viperIn == nil {
+		viper = gviper.GetViper()
+	} else {
+		viper = viperIn
+	}
 }
 
 type Setting struct {
