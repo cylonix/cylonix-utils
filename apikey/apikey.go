@@ -6,6 +6,8 @@ package apikey
 import (
 	"log"
 	"net/http"
+
+	"github.com/cylonix/utils"
 )
 
 const (
@@ -23,7 +25,7 @@ func Parse(r *http.Request) string {
 	}
 	if cookie, err := r.Cookie(ApiKeyCookieName); err == nil {
 		if cookie.Value != "" {
-			log.Printf("Using cookie: '%s'", cookie.Value)
+			log.Printf("Using cookie: '%s'", utils.ShortStringN(cookie.Value, 12))
 			return cookie.Value
 		}
 	}

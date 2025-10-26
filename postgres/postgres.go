@@ -317,11 +317,19 @@ func Sort(p *gorm.DB, sortBy, sortDesc *string) *gorm.DB {
 	if sortBy == nil || *sortBy == "" {
 		return p
 	}
-	orderStr := *sortBy
-	if sortDesc != nil && *sortDesc == "desc" {
-		orderStr += " desc"
+	by := strings.Split(*sortBy, ",")
+	desc := []string{}
+	if sortDesc != nil && *sortDesc != "" {
+		desc = strings.Split(*sortDesc, ",")
 	}
-	return p.Order(orderStr)
+	for i := 0; i < len(by); i++ {
+		orderStr := by[i]
+		if len(desc) > i && desc[i] == "desc" {
+			orderStr += " desc"
+		}
+		p = p.Order(orderStr)
+	}
+	return p
 }
 func Page(p *gorm.DB, total int64, page, pageSize *int) *gorm.DB {
 	if pageSize == nil || page == nil {
