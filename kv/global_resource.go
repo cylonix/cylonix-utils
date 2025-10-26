@@ -34,8 +34,8 @@ const (
 	// NativeConfig: the converted configuration
 	NativeConfig = "native"
 
-	// TaiNamespace: tai related config
-	TaiNamespace = "tai"
+	// TaiNamespace: fw related config
+	TaiNamespace = "fw"
 
 	// GlobalResourceTypeNat: nat global resource type
 	GlobalResourceTypeNat = "Nat"
@@ -69,11 +69,11 @@ const (
 	// GlobalResourceTypeWgNamespace: wg config resource type
 	GlobalResourceTypeWgNamespace = "wg-namespace"
 
-	// GlobalResourceTypeTaiNamespace: tai config resource type
-	GlobalResourceTypeTaiNamespace = "tai-namespace"
+	// GlobalResourceTypeTaiNamespace: fw config resource type
+	GlobalResourceTypeTaiNamespace = "fw-namespace"
 
-	// GlobalResourceTypeTai: tai config resource type
-	GlobalResourceTypeTai = "tai"
+	// GlobalResourceTypeTai: fw config resource type
+	GlobalResourceTypeTai = "fw"
 
 	// GlobalResourceTypeApiKey: pre-configured api keys
 	GlobalResourceTypeApiKey = "api-key"

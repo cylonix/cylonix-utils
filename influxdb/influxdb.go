@@ -36,6 +36,39 @@ func NewClient(host, port, token string) (influxdb2.Client, error) {
 	return client, nil
 }
 
+// EnsureBucket checks if a bucket exists and creates it if it doesn't
+func EnsureBucket(bucketName string, orgName string) error {
+	if client == nil {
+		return ErrClientNotReady
+	}
+
+	bucketsAPI := client.BucketsAPI()
+	bucket, err := bucketsAPI.FindBucketByName(context.Background(), bucketName)
+	if err == nil && bucket != nil {
+		return nil
+	}
+
+	if orgName == "" {
+		orgName = influxdbDefaultOrg
+	}
+
+	orgsAPI := client.OrganizationsAPI()
+	org, err := orgsAPI.FindOrganizationByName(context.Background(), orgName)
+	if err != nil {
+		logger.WithError(err).Errorf("Failed to find organization %s", orgName)
+		return err
+	}
+
+	_, err = bucketsAPI.CreateBucketWithNameWithID(context.Background(), *org.Id, bucketName)
+	if err != nil {
+		logger.WithError(err).Errorf("Failed to create bucket %s in organization %s", bucketName, orgName)
+		return err
+	}
+
+	logger.Infof("Successfully created bucket %s in organization %s", bucketName, orgName)
+	return nil
+}
+
 func GetClient() (influxdb2.Client, error) {
 	if client == nil {
 		return nil, ErrClientNotReady

@@ -42,7 +42,7 @@ const (
 	SubHandle     = "sub-handle"
 	SubSys        = "sub-sys"
 	Sys           = "sys"
-	Tai           = "tai"
+	Fw           = "fw"
 	TenantUserID  = "tenant-user-id"
 	Tunnel        = "tunnel"
 	Type          = "type"

@@ -27,7 +27,7 @@ const (
 	SupervisorServiceType = "supervisor-service"
 	WgServiceType         = "wg-service"
 	PopServiceType        = "pop-service"
-	TaiServiceType        = "tai-service"
+	TaiServiceType        = "fw-service"
 
 	// Sase-supervisor Resource
 	PopInstanceType        = "Pop"
@@ -35,12 +35,12 @@ const (
 	PopInstanceVppUpType   = "VPP-Up"
 	PopInstanceVppDownType = "VPP-Down"
 	WgConnType             = "wg"
-	FwConnType            = "tai"
+	FwConnType            = "fw"
 	UserType               = "user"
 	UserPopConfigType      = "UserPopConfig"
 	UserWgConfigType       = "UserWgConfig"
 	UserWgStatusType       = "UserWgStatus"
-	UserFwConfigType      = "UserTaiConfig"
+	UserFwConfigType      = "UserFwConfig"
 	SystemConfigType       = "SystemConfig"
 	SystemConfigRemoveType = "SystemConfigRemove"
 
