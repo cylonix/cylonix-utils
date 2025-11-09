@@ -7,6 +7,7 @@ toolchain go1.22.3
 require (
 	github.com/Nerzal/gocloak/v13 v13.9.0
 	github.com/coreos/go-oidc/v3 v3.2.0
+	github.com/cylonix/ipdrawer v0.0.0-00010101000000-000000000000
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -17,7 +18,7 @@ require (
 	github.com/sethvargo/go-password v0.3.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/viper v1.11.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
 	golang.org/x/crypto v0.21.0
@@ -96,3 +97,5 @@ require (
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/cylonix/ipdrawer => ../clients/ipdrawer

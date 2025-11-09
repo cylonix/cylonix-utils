@@ -351,6 +351,24 @@ func GetIPDrawerConfig() (string, string, int, error) {
 	return schema, host, port, nil
 }
 
+func ParseServerURL(serverURL string) (string, string, int, error) {
+	parsedURL, err := url.Parse(serverURL)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("failed to parse server URL %s: %w", serverURL, err)
+	}
+	schema := parsedURL.Scheme
+	host := parsedURL.Hostname()
+	portStr := parsedURL.Port()
+	if portStr == "" {
+		return "", "", 0, fmt.Errorf("no port found in server URL %s", serverURL)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("invalid port in server URL %s: %w", serverURL, err)
+	}
+	return schema, host, port, nil
+}
+
 func checkOidcConfig(setting ConfigCheckSetting) error {
 	for _, v := range gConfig.OauthLogins {
 		log.Printf("checking %v login...", v.Provider)
