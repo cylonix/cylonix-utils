@@ -262,7 +262,7 @@ func (t *OauthStateToken) Delete() error {
 func (t *OauthStateToken) Get() (*OauthStateTokenData, error) {
 	data := &OauthStateTokenData{}
 	if err := gOauthStateTokenCache.Get(t.Token, data); err != nil {
-		// TEMPORAY TO RECOVER FROM CACHE MISS
+		// TEMPORARY TO RECOVER FROM CACHE MISS
 		// REMOVE THIS CODE AFTER A WHILE
 		if errors.Is(err, ErrTokenNotExists) || errors.Is(err, ErrTokenExpired) {
 			postgresErr := postgres.SelectFirst(data, "token = ?", t.Token)

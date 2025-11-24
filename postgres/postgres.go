@@ -73,8 +73,8 @@ func newConn(dsn string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxIdleConns(10)
-	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(50)
+	db.SetMaxOpenConns(200)
 	db.SetConnMaxLifetime(time.Second * 600)
 	return pgConn, nil
 }
@@ -136,7 +136,7 @@ func SetEmulator(isEmulator, verbose bool) {
 	useEmulator = isEmulator
 	verboseLogging = verbose
 }
-func SelectFirst(dest interface{}, conds ...interface{}) error {
+func SelectFirst(dest interface{}, conditions ...interface{}) error {
 	if dest == nil {
 		return errors.New("pg-select-first dest is nil")
 	}
@@ -144,12 +144,28 @@ func SelectFirst(dest interface{}, conds ...interface{}) error {
 	if err != nil || db == nil {
 		return fmt.Errorf("pg-select-first failed to connect to db: %w", err)
 	}
-	if err = db.First(dest, conds...).Error; err != nil {
+	if err = db.First(dest, conditions...).Error; err != nil {
 		return fmt.Errorf("pg-select-first get data failed: %w", err)
 	}
 	return nil
 }
-func SelectLast(dest interface{}, conds ...interface{}) error {
+func SelectOne(dest interface{}, conditions ...interface{}) error {
+	if dest == nil {
+		return errors.New("pg-select-one dest is nil")
+	}
+	db, err := Connect()
+	if err != nil || db == nil {
+		return fmt.Errorf("pg-select-one failed to connect to db: %w", err)
+	}
+	if len(conditions) == 0 {
+        return errors.New("pg-select-one: no conditions provided")
+    }
+	if err = db.Take(dest, conditions...).Error; err != nil {
+		return fmt.Errorf("pg-select-one get data failed: %w", err)
+	}
+	return nil
+}
+func SelectLast(dest interface{}, conditions ...interface{}) error {
 	if dest == nil {
 		return errors.New("pg-select-last dest is nil")
 	}
@@ -157,12 +173,12 @@ func SelectLast(dest interface{}, conds ...interface{}) error {
 	if err != nil || db == nil {
 		return fmt.Errorf("pg-select-last failed to connect to db: %w", err)
 	}
-	if err = db.Last(dest, conds...).Error; err != nil {
+	if err = db.Last(dest, conditions...).Error; err != nil {
 		return fmt.Errorf("pg-select-last get data failed: %w", err)
 	}
 	return nil
 }
-func SelectAll(dest interface{}, conds ...interface{}) error {
+func SelectAll(dest interface{}, conditions ...interface{}) error {
 	if dest == nil {
 		return errors.New("pg-select-all dest is nil")
 	}
@@ -170,12 +186,12 @@ func SelectAll(dest interface{}, conds ...interface{}) error {
 	if err != nil || db == nil {
 		return fmt.Errorf("pg-select-all connect to db failed: %w", err)
 	}
-	if err = db.Find(dest, conds...).Error; err != nil {
+	if err = db.Find(dest, conditions...).Error; err != nil {
 		return fmt.Errorf("pg-select-all find failed: %w", err)
 	}
 	return nil
 }
-func SelectByModel(model interface{}, dest interface{}, query interface{}, conds ...interface{}) error {
+func SelectByModel(model interface{}, dest interface{}, query interface{}, conditions ...interface{}) error {
 	if dest == nil {
 		return errors.New("pg-select-by-model dest is nil")
 	}
@@ -183,12 +199,12 @@ func SelectByModel(model interface{}, dest interface{}, query interface{}, conds
 	if err != nil || db == nil {
 		return fmt.Errorf("pg-select-by-model connect to db failed %w", err)
 	}
-	if err = db.Model(model).Where(query, conds...).Find(dest).Error; err != nil {
+	if err = db.Model(model).Where(query, conditions...).Find(dest).Error; err != nil {
 		return fmt.Errorf("pg-select-by-model find failed %w", err)
 	}
 	return nil
 }
-func SelectPage(limit, offset int, order interface{}, dest interface{}, conds ...interface{}) error {
+func SelectPage(limit, offset int, order interface{}, dest interface{}, conditions ...interface{}) error {
 	if dest == nil {
 		return errors.New("pg-select-page dest is nil")
 	}
@@ -198,7 +214,7 @@ func SelectPage(limit, offset int, order interface{}, dest interface{}, conds ..
 	}
 
 	tx := db.Limit(limit).Offset(offset).Order(order)
-	tx.Find(dest, conds...)
+	tx.Find(dest, conditions...)
 	if err = tx.Error; err != nil {
 		return fmt.Errorf("pg-select-page find failed: %w", err)
 	}
@@ -206,7 +222,7 @@ func SelectPage(limit, offset int, order interface{}, dest interface{}, conds ..
 }
 
 // Delete returns no error if the record is not found.
-func Delete(model interface{}, conds ...interface{}) error {
+func Delete(model interface{}, conditions ...interface{}) error {
 	if model == nil {
 		return errors.New("pg-delete model param is nil")
 	}
@@ -214,13 +230,13 @@ func Delete(model interface{}, conds ...interface{}) error {
 	if err != nil || db == nil {
 		return fmt.Errorf("pg-delete connect to db failed: %w", err)
 	}
-	err = db.Model(model).Delete(model, conds...).Error
+	err = db.Model(model).Delete(model, conditions...).Error
 	if err == nil || errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}
 	return fmt.Errorf("pg-delete delete data failed: %w", err)
 }
-func Updates(model interface{}, dest interface{}, query interface{}, conds ...interface{}) error {
+func Updates(model interface{}, dest interface{}, query interface{}, conditions ...interface{}) error {
 	if dest == nil || model == nil || query == nil {
 		return errors.New("pg-updates param is nil")
 	}
@@ -228,12 +244,12 @@ func Updates(model interface{}, dest interface{}, query interface{}, conds ...in
 	if err != nil || db == nil {
 		return fmt.Errorf("pg-updates connect to db failed: %w", err)
 	}
-	if err = db.Model(model).Where(query, conds...).Updates(dest).Error; err != nil {
+	if err = db.Model(model).Where(query, conditions...).Updates(dest).Error; err != nil {
 		return fmt.Errorf("pg-updates updates failed: %w", err)
 	}
 	return nil
 }
-func TableCount(dest interface{}, query interface{}, conds ...interface{}) (int64, error) {
+func TableCount(dest interface{}, query interface{}, conditions ...interface{}) (int64, error) {
 	if dest == nil {
 		return 0, errors.New("pg-table-count dest is nil")
 	}
@@ -242,12 +258,12 @@ func TableCount(dest interface{}, query interface{}, conds ...interface{}) (int6
 		return 0, fmt.Errorf("pg-table-count connect to db failed: %w", err)
 	}
 	var ret int64
-	if err := db.Model(dest).Where(query, conds...).Count(&ret).Error; err != nil {
+	if err := db.Model(dest).Where(query, conditions...).Count(&ret).Error; err != nil {
 		return 0, fmt.Errorf("pg-table-count count failed: %w", err)
 	}
 	return ret, nil
 }
-func TableCountByName(tableName string, query interface{}, conds ...interface{}) (int64, error) {
+func TableCountByName(tableName string, query interface{}, conditions ...interface{}) (int64, error) {
 	if tableName == "" {
 		return 0, errors.New("pg-table-count-by-name table name is nil")
 	}
@@ -256,12 +272,12 @@ func TableCountByName(tableName string, query interface{}, conds ...interface{})
 		return 0, fmt.Errorf("pg-table-count-by-name connect to db failed: %w", err)
 	}
 	var ret int64
-	if err := db.Table(tableName).Where(query, conds...).Count(&ret).Error; err != nil {
+	if err := db.Table(tableName).Where(query, conditions...).Count(&ret).Error; err != nil {
 		return 0, fmt.Errorf("pg-table-count-by-name: count failed %w", err)
 	}
 	return ret, nil
 }
-func Update(model interface{}, column string, dest interface{}, query interface{}, conds ...interface{}) error {
+func Update(model interface{}, column string, dest interface{}, query interface{}, conditions ...interface{}) error {
 	if dest == nil || model == nil || query == nil {
 		return errors.New("pg-update param is nil")
 	}
@@ -269,7 +285,7 @@ func Update(model interface{}, column string, dest interface{}, query interface{
 	if err != nil || db == nil {
 		return fmt.Errorf("pg-update connect to db failed: %w", err)
 	}
-	if err = db.Model(model).Where(query, conds...).Update(column, dest).Error; err != nil {
+	if err = db.Model(model).Where(query, conditions...).Update(column, dest).Error; err != nil {
 		return fmt.Errorf("pg-update update data failed: %w", err)
 	}
 	return nil
