@@ -672,6 +672,16 @@ func (t *OtpToken) CanSendCode() (*string, error) {
 	}
 	return &code, nil
 }
+func (t *OtpToken) SetNewCode() (*string, error) {
+	code := NewOtp()
+	data := OtpTokenData{
+		Code: code,
+	}
+	if err := gOtpTokenCache.Set(t.Token, &data, cache.DefaultExpiration, false); err != nil {
+		return nil, err
+	}
+	return &code, nil
+}
 func (t *OtpToken) Set(state, code string, isUpdate bool) error {
 	data := &OtpTokenData{
 		Code:  code,
@@ -684,13 +694,13 @@ func (t *OtpToken) IsValid(code string) (bool, string, error) {
 	token := t.Token
 	err := gOtpTokenCache.Get(token, data)
 	if err == nil {
-		gOtpTokenCache.Delete(token)
 		if data.Code != code {
 			if debugTokenCache() {
 				log.Printf("code does not match %v != %v", data.Code, code)
 			}
 			return false, "", nil
 		}
+		gOtpTokenCache.Delete(token)
 		return true, data.State, nil
 	}
 	if errors.Is(err, ErrTokenExpired) || errors.Is(err, ErrTokenNotExists) {

@@ -26,6 +26,7 @@ type Config struct {
 	Scopes            []string `json:"scopes,omitempty"` // Scopes to request, e.g. "openid", "profile", "email".
 	ClientID          string   `json:"client_id"`
 	ClientSecret      string   `json:"client_secret"`
+	ClientSecretFile  string   `json:"client_secret_file,omitempty"`
 	TeamID            string   `json:"team_id,omitempty"` // For Apple Sign In.
 	KeyID             string   `json:"key_id,omitempty"`  // For Apple Sign In.
 	WebAuthSuccessURI string   `json:"web_auth_success_uri"`

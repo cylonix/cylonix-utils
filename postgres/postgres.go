@@ -4,6 +4,7 @@
 package postgres
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -32,6 +33,135 @@ var (
 	ErrInvalidDSNOrDBName  = errors.New("invalid dsn or db name")
 )
 
+// Custom logger that triggers diagnostics on slow SQL
+type slowSQLLogger struct {
+	logger.Interface
+	slowThreshold time.Duration
+	diagOnce      sync.Once
+}
+
+func newSlowSQLLogger(slowThreshold time.Duration) *slowSQLLogger {
+	return &slowSQLLogger{
+		Interface: logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{
+			SlowThreshold:             slowThreshold,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  true,
+		}),
+		slowThreshold: slowThreshold,
+	}
+}
+
+func (l *slowSQLLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+	elapsed := time.Since(begin)
+	sql, rows := fc()
+
+	// Call the underlying logger's Trace
+	l.Interface.Trace(ctx, begin, fc, err)
+
+	// Trigger diagnostics on slow SQL
+	if elapsed > l.slowThreshold {
+		log.Printf("SLOW SQL DETECTED: %v elapsed for query: %s (rows: %d)", elapsed, sql, rows)
+
+		// Run diagnostics once per slow query session
+		l.diagOnce.Do(func() {
+			// go runSlowSQLDiagnostics()
+		})
+	}
+}
+
+func runSlowSQLDiagnostics() {
+	log.Println("=== SLOW SQL DIAGNOSTICS START ===")
+
+	if pgConn == nil {
+		log.Println("DIAG: pgConn is nil")
+		return
+	}
+
+	sqlDB, err := pgConn.DB()
+	if err != nil {
+		log.Printf("DIAG: Failed to get sql.DB: %v", err)
+		return
+	}
+
+	// 1. Connection pool stats
+	stats := sqlDB.Stats()
+	log.Printf("DIAG Pool Stats: Open=%d InUse=%d Idle=%d WaitCount=%d WaitDuration=%v MaxOpen=%d MaxIdle=%d",
+		stats.OpenConnections,
+		stats.InUse,
+		stats.Idle,
+		stats.WaitCount,
+		stats.WaitDuration,
+		stats.MaxOpenConnections,
+		stats.MaxIdleTimeClosed)
+
+	// 2. Test raw ping latency
+	for i := 0; i < 3; i++ {
+		start := time.Now()
+		err := sqlDB.Ping()
+		log.Printf("DIAG Ping %d: %v (err: %v)", i, time.Since(start), err)
+	}
+
+	// 3. Test raw SQL query (bypass GORM)
+	for i := 0; i < 3; i++ {
+		start := time.Now()
+		rows, err := sqlDB.Query("SELECT 1")
+		duration := time.Since(start)
+		if rows != nil {
+			rows.Close()
+		}
+		log.Printf("DIAG Raw SQL %d: %v (err: %v)", i, duration, err)
+	}
+
+	// 4. Test GORM query with struct condition (SLOW?)
+	for i := 0; i < 3; i++ {
+		start := time.Now()
+		var wgInfo struct {
+			ID     string
+			NodeID uint64
+		}
+		nodeID := uint64(38084)
+		pgConn.Table("wg_infos").Where(&struct{ NodeID *uint64 }{NodeID: &nodeID}).Take(&wgInfo)
+		log.Printf("DIAG GORM struct condition %d: %v", i, time.Since(start))
+	}
+
+	// 5. Test GORM query with explicit WHERE (FAST?)
+	for i := 0; i < 3; i++ {
+		start := time.Now()
+		var wgInfo struct {
+			ID     string
+			NodeID uint64
+		}
+		pgConn.Table("wg_infos").Where("node_id = ?", 38084).Take(&wgInfo)
+		log.Printf("DIAG GORM explicit WHERE %d: %v", i, time.Since(start))
+	}
+
+	// 6. Test raw SQL on wg_infos
+	for i := 0; i < 3; i++ {
+		start := time.Now()
+		rows, err := sqlDB.Query("SELECT id, node_id FROM wg_infos WHERE node_id = 38084 LIMIT 1")
+		duration := time.Since(start)
+		if rows != nil {
+			rows.Close()
+		}
+		log.Printf("DIAG Raw wg_infos query %d: %v (err: %v)", i, duration, err)
+	}
+
+	log.Println("=== SLOW SQL DIAGNOSTICS END ===")
+}
+
+// Manual diagnostics function that can be called externally
+func DiagnoseDBLatency() {
+	runSlowSQLDiagnostics()
+}
+
+// Reset diagnostics trigger (useful for testing)
+func ResetDiagnostics() {
+	if l, ok := pgConn.Logger.(*slowSQLLogger); ok {
+		l.diagOnce = sync.Once{}
+	}
+}
+
 func Init(dsn, dbName string, tables []interface{}) error {
 	if dsn == "" || dbName == "" {
 		return ErrInvalidDSNOrDBName
@@ -59,7 +189,14 @@ func newConn(dsn string) (*gorm.DB, error) {
 		}
 		autoMigrate = true
 	}
-	pgConn, err = gorm.Open(pg.Open(dsn), &gorm.Config{})
+
+	// Use custom slow SQL logger
+	customLogger := newSlowSQLLogger(100 * time.Millisecond)
+
+	pgConn, err = gorm.Open(pg.Open(dsn), &gorm.Config{
+		PrepareStmt: false,
+		Logger:      customLogger,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
@@ -76,6 +213,8 @@ func newConn(dsn string) (*gorm.DB, error) {
 	db.SetMaxIdleConns(50)
 	db.SetMaxOpenConns(200)
 	db.SetConnMaxLifetime(time.Second * 600)
+	db.SetConnMaxIdleTime(time.Minute * 5) // idle timeout
+
 	return pgConn, nil
 }
 

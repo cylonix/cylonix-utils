@@ -50,7 +50,12 @@ func readApplePrivateKey(path string) (string, error) {
 }
 
 func setAppleConfig(config *Config) error {
-	keyContent, err := readApplePrivateKey(config.ClientSecret)
+	// Save the config client secret as the path to the private key file.
+	// For apple the client secret is a JWT generated using the private key
+	// It needs to be refreshed periodically. The config passed in is the path
+	// initially, so we read the key and generate the JWT here.
+	config.ClientSecretFile = config.ClientSecret
+	keyContent, err := readApplePrivateKey(config.ClientSecretFile)
 	if err != nil {
 		return err
 	}
@@ -98,7 +103,7 @@ func updateAppleJWTIfNeeded(config *Config) error {
 	}
 
 	if isJWTExpired(config.ClientSecret) {
-		keyContent, err := readApplePrivateKey(config.ClientSecret)
+		keyContent, err := readApplePrivateKey(config.ClientSecretFile)
 		if err != nil {
 			return fmt.Errorf("failed to refresh Apple client secret JWT: %w", err)
 		}
