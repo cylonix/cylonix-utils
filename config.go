@@ -206,6 +206,7 @@ type ConfigCheckSetting struct {
 	Postgres      bool
 	Elasticsearch bool
 	Prometheus    bool
+	SendEmail     bool
 }
 
 func getConfigFromViper() (*Configuration, error) {
@@ -369,7 +370,7 @@ func ParseServerURL(serverURL string) (string, string, int, error) {
 	return schema, host, port, nil
 }
 
-func checkOidcConfig(setting ConfigCheckSetting) error {
+func checkOidcConfig(_ ConfigCheckSetting) error {
 	for _, v := range gConfig.OauthLogins {
 		log.Printf("checking %v login...", v.Provider)
 		// Skip entries with empty client ID or secret.
@@ -483,6 +484,22 @@ func GetCylonixAdminInfo() (namespace, username, password, email, firstName, las
 	lastName = viper.GetString("sys_admin.last_name")
 	if username == "" {
 		username = "admin"
+	}
+	return
+}
+
+func MFAProvisioned() bool {
+	return gConfig.SendEmailConfig.Provider != "" || gConfig.SendSMSConfig.Provider != ""
+}
+
+func GetContactEmailAndCompanyWebsite() (contact, website string) {
+	contact = viper.GetString("company.contact_email")
+	website = viper.GetString("company.website")
+	if contact == "" {
+		contact = "contact@cylonix.io"
+	}
+	if website == "" {
+		website = "https://cylonix.io"
 	}
 	return
 }

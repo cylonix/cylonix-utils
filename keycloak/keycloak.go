@@ -20,6 +20,11 @@ const (
 	SysadminRole    = "sase-master-admin"
 )
 
+var (
+	ErrNotProvisioned = errors.New("keycloak not provisioned")
+	Provisioned       bool
+)
+
 // Key cloak user has many details that it probably wouldn't work if
 // tenant has their own IDP and they will only export limited information to us
 // Let's kept the user detail agnostic to the IDP and the must haves only.
@@ -84,6 +89,7 @@ type Config struct {
 
 func SetInstance(i KeyCloakInterface) {
 	instance = i
+	Provisioned = true
 }
 func GetInstance() KeyCloakInterface {
 	return instance

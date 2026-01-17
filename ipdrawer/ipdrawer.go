@@ -108,11 +108,13 @@ func (ipDrawer *IPDrawer) checkAndCreateNamespaceNetwork(namespace string) error
 	ret, rsp, err := ipDrawer.client.NetworkServiceV0API.NetworkServiceV0ListNetwork(ctx, namespace).Execute()
 	if err != nil {
 		v := ""
-		buf := make([]byte, 1024)
-		n, _ := rsp.Body.Read(buf)
-		if n > 0 {
-			buf = buf[:n]
-			v = string(buf)
+		if rsp.Body != nil {
+			buf := make([]byte, 1024)
+			n, _ := rsp.Body.Read(buf)
+			if n > 0 {
+				buf = buf[:n]
+				v = string(buf)
+			}
 		}
 		return fmt.Errorf("failed to list network: code=%v('%v') %w", rsp.StatusCode, v, err)
 	}
@@ -146,11 +148,13 @@ func (ipDrawer *IPDrawer) checkAndCreateNamespaceNetwork(namespace string) error
 		Execute()
 	if err != nil {
 		v := ""
-		buf := make([]byte, 1024)
-		n, _ := rsp.Body.Read(buf)
-		if n > 0 {
-			buf = buf[:n]
-			v = string(buf)
+		if rsp.Body != nil {
+			buf := make([]byte, 1024)
+			n, _ := rsp.Body.Read(buf)
+			if n > 0 {
+				buf = buf[:n]
+				v = string(buf)
+			}
 		}
 		return fmt.Errorf("failed to list network pool: code=%v('%v') %w", rsp.StatusCode, v, err)
 	}
