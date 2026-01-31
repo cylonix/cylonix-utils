@@ -160,6 +160,10 @@ func (c Configuration) OauthCallbackURL() string {
 	return base + "/manager/v2/login/oauth/callback"
 }
 
+func OauthCallbackURL() string {
+	return gConfig.OauthCallbackURL()
+}
+
 func LoginURL(sessionID string) string {
 	base := os.Getenv("CYLONIX_UI_BASE_URL")
 	if base == "" {

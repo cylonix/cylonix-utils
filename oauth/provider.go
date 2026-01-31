@@ -5,12 +5,14 @@ package oauth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
 var (
@@ -100,16 +102,27 @@ func (c *Config) OidcProvider() (*oidc.Provider, error) {
 	return oidc.NewProvider(ctx, c.ConfigURL)
 }
 
+func (c *Config) isGithub() bool {
+	return c.ConfigURL == wellKnownOAuthProviders[SignInWithGithub]
+}
+
 func (c *Config) oauth2Config(provider *oidc.Provider) (*oauth2.Config, error) {
 	if err := updateAppleJWTIfNeeded(c); err != nil {
 		return nil, err
+	}
+	endpoint := provider.Endpoint()
+	scopes := append(c.Scopes, oidc.ScopeOpenID)
+	// Github uses a non-standard OAuth2 endpoint.
+	if c.isGithub() {
+		endpoint = github.Endpoint
+		scopes = []string{"read:user", "user:email"}
 	}
 	return &oauth2.Config{
 		ClientID:     c.ClientID,
 		ClientSecret: c.ClientSecret,
 		RedirectURL:  c.RedirectURI,
-		Endpoint:     provider.Endpoint(),
-		Scopes:       append(c.Scopes, oidc.ScopeOpenID),
+		Endpoint:     endpoint,
+		Scopes:       scopes,
 	}, nil
 }
 
@@ -133,10 +146,46 @@ func (c *Config) AuthCodeURL(state string) (string, error) {
 	return authCodeURL, nil
 }
 
-func (c *Config) claims(code, username, password, rawIDToken string, claims interface{}, logger *logrus.Entry) error {
+func (c *Config) exchangeForToken(
+	ctx context.Context, oauth2Config *oauth2.Config,
+	code, username, password string,
+	log *logrus.Entry,
+) (string, error) {
+	// Exchange code to token or password login.
+	var oauth2Token *oauth2.Token
+	var err error
+	if code != "" {
+		oauth2Token, err = oauth2Config.Exchange(ctx, code)
+	} else if password != "" {
+		oauth2Token, err = oauth2Config.PasswordCredentialsToken(ctx, username, password)
+		log.WithError(err).Debugln("Oauth password login result.")
+	}
+	if err != nil {
+		return "", fmt.Errorf("%w: failed to get token: %v", ErrUnauthorized, err)
+	}
+
+	// For github, we need to use the access token to get the id information.
+	if c.isGithub() {
+		v, err := fetchGithubUserInfo(ctx, oauth2Config, oauth2Token, log)
+		if err != nil {
+			return "", err
+		}
+		return string(v), nil
+	}
+	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
+	if !ok {
+		return "", errors.New("failed to extract raw ID token")
+	}
+	return rawIDToken, nil
+}
+
+func (c *Config) claims(
+	code, username, password, rawIDToken string, claims interface{},
+	logger *logrus.Entry,
+) error {
 	// Get oauth2 config.
-	log := logger.WithField("username", username)
-	log.Debugln("Oauth claims login.")
+	log := logger.WithField("username", username).WithField("handler", "oauth_claims")
+	log.Debugln("Starting oauth claims process.")
 	op, err := c.OidcProvider()
 	if err != nil {
 		return fmt.Errorf("failed to get oidc provider from %v: %w", c.ConfigURL, err)
@@ -147,26 +196,23 @@ func (c *Config) claims(code, username, password, rawIDToken string, claims inte
 	}
 	ctx := context.Background()
 
-	log.Debugln("Oauth claims login. Exchange token or login with password.")
+	log.Debugln("Exchange token or login with password.")
 
 	// Get raw ID token if necessary.
-	ok := false
 	if rawIDToken == "" {
-		// Exchange code to token or password login.
-		var oauth2Token *oauth2.Token
-		if code != "" {
-			oauth2Token, err = oauth2Config.Exchange(ctx, code)
-		} else if password != "" {
-			oauth2Token, err = oauth2Config.PasswordCredentialsToken(ctx, username, password)
-			log.WithError(err).Debugln("Oauth password login result.")
-		}
+		rawIDToken, err = c.exchangeForToken(ctx, oauth2Config, code, username, password, log)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+			return err
 		}
-		rawIDToken, ok = oauth2Token.Extra("id_token").(string)
-		if !ok {
-			return errors.New("failed to extract raw ID token")
+	}
+
+	// For github, just unmarshal the claims directly.
+	if c.isGithub() {
+		err := json.Unmarshal([]byte(rawIDToken), claims)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal github claims: %v", err)
 		}
+		return nil
 	}
 
 	// Verify token.
@@ -177,7 +223,7 @@ func (c *Config) claims(code, username, password, rawIDToken string, claims inte
 	verifier := op.Verifier(oidcVerifierConfig)
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to verify ID token: %v. token: %s", err, rawIDToken)
 	}
 	// Debug print verified idToken claims
 	var rawClaims map[string]interface{}
@@ -187,7 +233,7 @@ func (c *Config) claims(code, username, password, rawIDToken string, claims inte
 		log.WithField("raw_claims", rawClaims).Debugln("ID token claims")
 	}
 	if err := idToken.Claims(claims); err != nil {
-		return err
+		return fmt.Errorf("failed to extract claims: %v", err)
 	}
 	return nil
 }

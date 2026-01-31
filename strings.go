@@ -13,3 +13,10 @@ func ShortStringN(str string, n int) string {
 	}
 	return "[" + str + "]"
 }
+
+func ShortStringNWithEllipsis(str string, n int) string {
+	if len(str) > n {
+		str = str[:n] + "..."
+	}
+	return str
+}

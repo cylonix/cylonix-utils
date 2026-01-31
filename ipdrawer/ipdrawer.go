@@ -26,6 +26,14 @@ var (
 	ipDrawerInstance          IPDrawerInterface
 	ErrIPDrawerNotProvisioned = errors.New("ip drawer service not provisioned")
 	ErrIPDrawerClientNotReady = errors.New("ip drawer client is not ready")
+
+	// From Tailscale CGNAT range definitions:
+	// https://github.com/tailscale/tailscale/blob/main/net/tsaddr/tsaddr.go
+	// ChromeOSVMRange is the subset of the CGNAT IPv4 range used by
+	// ChromeOS to interconnect the host OS to containers and VMs. We
+	// avoid allocating IPs from it, to avoid conflicts.
+	chromeOSVMRange = "100.115.92.0/23"
+
 )
 
 type IPDrawer struct {
@@ -217,6 +225,7 @@ func (ipDrawer *IPDrawer) AllocateIPAddr(namespace, popName, uuid string, want *
 				Value: &value,
 			},
 			MustHaveWantIP: optional.P(want != nil),
+			Exclude:        &chromeOSVMRange, // Avoid ChromeOS VM range
 		},
 	).Execute()
 	if err != nil {

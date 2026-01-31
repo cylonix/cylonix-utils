@@ -14,6 +14,24 @@ type OAuth struct {
 	config Config
 }
 
+var (
+	wellKnownOAuthProviders = map[string]string {
+		SignInWithGoogle:    "https://accounts.google.com",
+		SignInWithApple:     "https://appleid.apple.com",
+		SignInWithMicrosoft: "https://login.microsoftonline.com/common/v2.0",
+		SignInWithGithub:    "https://token.actions.githubusercontent.com",
+		SignInWithWeChat:    "https://open.weixin.qq.com",
+	}
+)
+func IssuerURLToProvider(issuerURL string) string {
+	for provider, url := range wellKnownOAuthProviders {
+		if issuerURL == url {
+			return provider
+		}
+	}
+	return ""
+}
+
 func NewOAuth(config Config) (Provider, error) {
 	if config.ClientID == "" || config.ClientSecret == "" {
 		return nil, fmt.Errorf("invalid %v auth config", config.Provider)
@@ -22,15 +40,15 @@ func NewOAuth(config Config) (Provider, error) {
 	if config.ConfigURL == "" {
 		switch config.Provider {
 		case SignInWithApple:
-			config.ConfigURL = "https://appleid.apple.com"
+			config.ConfigURL = wellKnownOAuthProviders[SignInWithApple]
 		case SignInWithGithub:
-			config.ConfigURL = "https://github.com"
+			config.ConfigURL = wellKnownOAuthProviders[SignInWithGithub]
 		case SignInWithGoogle:
-			config.ConfigURL = "https://accounts.google.com"
+			config.ConfigURL = wellKnownOAuthProviders[SignInWithGoogle]
 		case SignInWithMicrosoft:
-			config.ConfigURL = "https://login.microsoftonline.com/common"
+			config.ConfigURL = wellKnownOAuthProviders[SignInWithMicrosoft]
 		case SignInWithWeChat:
-			config.ConfigURL = "https://open.weixin.qq.com"
+			config.ConfigURL = wellKnownOAuthProviders[SignInWithWeChat]
 		default:
 			return nil, fmt.Errorf("missing config URL for provider %v", config.Provider)
 		}
