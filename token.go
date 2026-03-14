@@ -174,6 +174,11 @@ func GetOauthStateTokenData(token string) (*OauthStateTokenData, error) {
 	return v.Get()
 }
 
+func UpdateOauthStateTokenData(token string, data *OauthStateTokenData) error {
+	v := &OauthStateToken{Token: token}
+	return v.Update(data, time.Duration(time.Hour*2))
+}
+
 type OauthStateTokenForNodeInput struct {
 	Namespace     string
 	MachineKey    string
