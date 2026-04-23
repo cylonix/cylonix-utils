@@ -5,6 +5,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -65,7 +66,7 @@ func (l *slowSQLLogger) Trace(ctx context.Context, begin time.Time, fc func() (s
 
 		// Run diagnostics once per slow query session
 		l.diagOnce.Do(func() {
-			// go runSlowSQLDiagnostics()
+		//go runSlowSQLDiagnostics()
 		})
 	}
 }
@@ -211,9 +212,26 @@ func newConn(dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 	db.SetMaxIdleConns(50)
-	db.SetMaxOpenConns(200)
+	db.SetMaxOpenConns(100)
 	db.SetConnMaxLifetime(time.Second * 600)
 	db.SetConnMaxIdleTime(time.Minute * 5) // idle timeout
+
+	// Pre-warm the connection pool to avoid a reconnection storm on restart.
+	// Open MinIdle connections upfront so the first burst of queries don't all
+	// block on TCP/TLS handshakes simultaneously.
+	const minWarm = 5
+	warmConns := make([]*sql.Conn, 0, minWarm)
+	ctx := context.Background()
+	for i := 0; i < minWarm; i++ {
+		conn, err := db.Conn(ctx)
+		if err != nil {
+			break
+		}
+		warmConns = append(warmConns, conn)
+	}
+	for _, conn := range warmConns {
+		conn.Close() // returns to idle pool
+	}
 
 	return pgConn, nil
 }
