@@ -132,7 +132,7 @@ func init() {
 	gUserTokenCache = NewTokenCache(userTokenPath, time.Hour*24, 2*time.Hour)
 	gOtpTokenCache = NewTokenCache(smsCodeTokenPath, 5*time.Minute, 10*time.Minute)
 	gQRCodeTokenCache = NewTokenCache(qrCodeTokenPath, 5*time.Minute, 10*time.Minute)
-	gOauthStateTokenCache = NewTokenCache(oauthCodeTokenPath, 5*time.Minute, 10*time.Minute)
+	gOauthCodeTokenCache = NewTokenCache(oauthCodeTokenPath, 5*time.Minute, 10*time.Minute)
 	gOauthStateTokenCache = NewTokenCache(oauthStateTokenPath, 5*time.Minute, 10*time.Minute)
 }
 
