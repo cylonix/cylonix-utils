@@ -146,9 +146,13 @@ func (ipDrawer *IPDrawer) checkAndCreateNamespaceNetwork(namespace string) error
 		if err != nil {
 			return fmt.Errorf("failed to create network: code=%v(%v) %w", rsp.StatusCode, v, err)
 		}
-		if v != nil {
-			err = fmt.Errorf("failed to create network: message=%v", v)
-			return err
+		// On success, ipdrawer returns `200 {}` which the openapi-generated
+		// client unmarshals to a non-nil empty map[string]interface{}. The
+		// original `v != nil` check fired on every success; only treat a
+		// non-empty body as the error case (older ipdrawer responses
+		// included a status/message field).
+		if len(v) > 0 {
+			return fmt.Errorf("failed to create network: message=%v", v)
 		}
 	}
 	ret2, rsp, err := ipDrawer.client.NetworkServiceV0API.
@@ -189,9 +193,9 @@ func (ipDrawer *IPDrawer) checkAndCreateNamespaceNetwork(namespace string) error
 		if err != nil {
 			return fmt.Errorf("failed to create pool: code=%v %w", rsp.StatusCode, err)
 		}
-		if v != nil {
-			err = fmt.Errorf("failed to create network: message=%v", v)
-			return err
+		// See comment on CreateNetwork above — empty map = success.
+		if len(v) > 0 {
+			return fmt.Errorf("failed to create pool: message=%v", v)
 		}
 	}
 	return nil

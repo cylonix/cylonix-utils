@@ -479,16 +479,16 @@ func SendSmsCode(phone, code string) error {
 	}
 	return sendSmsInterface.Send(phone, code)
 }
-func GetCylonixAdminInfo() (namespace, username, password, email, firstName, lastName string) {
+// GetCylonixAdminInfo returns the sysadmin namespace + identity loaded from
+// config. The sysadmin's login_name IS the email — there's no separate
+// username field, which keeps login uniform across all users (the email
+// input field on the login UI works for everyone, including sysadmin).
+func GetCylonixAdminInfo() (namespace, password, email, firstName, lastName string) {
 	namespace = SysAdminNamespace
-	username = viper.GetString("sys_admin.username")
 	password = viper.GetString("sys_admin.password")
 	email = viper.GetString("sys_admin.email")
 	firstName = viper.GetString("sys_admin.first_name")
 	lastName = viper.GetString("sys_admin.last_name")
-	if username == "" {
-		username = "admin"
-	}
 	return
 }
 
