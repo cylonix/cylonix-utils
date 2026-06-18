@@ -19,6 +19,9 @@ func (ipDrawer *IPDrawerEmulator) InitIPdrawer() error {
 func (ipDrawer *IPDrawerEmulator) AllocateIPAddr(namespace, popName, uuid string, want *netip.Addr) (string, error) {
 	return "127.0.0.1", nil
 }
+func (ipDrawer *IPDrawerEmulator) AllocateIPv6Addr(namespace, popName, uuid string, want *netip.Addr) (string, error) {
+	return "fd7a:115c:a1e0::1", nil
+}
 func (ipDrawer *IPDrawerEmulator) ReleaseIPAddr(namespace, popName, ip string) error {
 	return nil
 }

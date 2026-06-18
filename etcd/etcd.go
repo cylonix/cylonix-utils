@@ -49,6 +49,10 @@ type ClientInterface interface {
 	GetWithPagination(namespace, objectType, lastKey string, pageSize int) (*clientv3.GetResponse, error)
 	GetWithKey(key string) (*clientv3.GetResponse, error)
 	GetWithKeyNoCache(key string) (*clientv3.GetResponse, error)
+	// CompareAndSwapWithKey atomically sets key to newVal only if its current
+	// value equals expected. Pass expected=="" to mean "key does not exist".
+	// Returns true if the swap was applied.
+	CompareAndSwapWithKey(key, expected, newVal string) (bool, error)
 	Delete(namespace, objectType, id string) error
 	DeleteWithKey(key string) error
 	GetData(key string, data interface{}) error
@@ -217,6 +221,35 @@ func (c *client) put(key, val string, opts ...clientv3.OpOption) (*clientv3.PutR
 	}
 	return putResp, nil
 }
+func (c *client) CompareAndSwapWithKey(key, expected, newVal string) (bool, error) {
+	kv, err := c.newKV()
+	if err != nil {
+		return false, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), etcdDialTimeout)
+	defer cancel()
+	var cmp clientv3.Cmp
+	if expected == "" {
+		// key must not exist.
+		cmp = clientv3.Compare(clientv3.CreateRevision(key), "=", 0)
+	} else {
+		cmp = clientv3.Compare(clientv3.Value(key), "=", expected)
+	}
+	resp, err := kv.Txn(ctx).
+		If(cmp).
+		Then(clientv3.OpPut(key, newVal)).
+		Commit()
+	if err != nil {
+		c.errorLog("compare-and-swap", key, err)
+		return false, err
+	}
+	if resp.Succeeded {
+		// Invalidate any cached value so subsequent reads see the new value.
+		c.deleteCache(key)
+	}
+	return resp.Succeeded, nil
+}
+
 func (c *client) GetWithKey(key string) (*clientv3.GetResponse, error) {
 	if key == etcdDebugKey {
 		c.debugLog("get-with-key", "", "")
@@ -411,6 +444,20 @@ func GetWithKey(key string) (*clientv3.GetResponse, error) {
 		return nil, ErrInstanceNotExists
 	}
 	return etcdInstance.GetWithKey(key)
+}
+
+func GetWithKeyNoCache(key string) (*clientv3.GetResponse, error) {
+	if etcdInstance == nil {
+		return nil, ErrInstanceNotExists
+	}
+	return etcdInstance.GetWithKeyNoCache(key)
+}
+
+func CompareAndSwapWithKey(key, expected, newVal string) (bool, error) {
+	if etcdInstance == nil {
+		return false, ErrInstanceNotExists
+	}
+	return etcdInstance.CompareAndSwapWithKey(key, expected, newVal)
 }
 
 func GetAll(namespace, objectType string) (*clientv3.GetResponse, error) {

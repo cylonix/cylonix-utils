@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/mvccpb"
@@ -16,6 +17,7 @@ import (
 
 type emulator struct {
 	kvMap map[string]string
+	mu    sync.Mutex
 }
 
 func NewEmulator() (ClientInterface, error) {
@@ -114,6 +116,21 @@ func (etcd *emulator) Delete(namespace, objectType, id string) error {
 
 func (etcd *emulator) DeleteWithKey(key string) error {
 	return etcd.delete(key)
+}
+
+func (etcd *emulator) CompareAndSwapWithKey(key, expected, newVal string) (bool, error) {
+	etcd.mu.Lock()
+	defer etcd.mu.Unlock()
+	cur, ok := etcd.kvMap[key]
+	if expected == "" {
+		if ok {
+			return false, nil
+		}
+	} else if cur != expected {
+		return false, nil
+	}
+	etcd.kvMap[key] = newVal
+	return true, nil
 }
 
 func (etcd *emulator) GetWithKey(key string) (*clientv3.GetResponse, error) {
