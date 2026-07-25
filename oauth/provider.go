@@ -150,7 +150,7 @@ func (c *Config) exchangeForToken(
 	ctx context.Context, oauth2Config *oauth2.Config,
 	code, username, password string,
 	log *logrus.Entry,
-) (string, error) {
+) (string, *oauth2.Token, error) { // __CYLONIX_MOD__ also return the oauth2 token for the userinfo fetch
 	// Exchange code to token or password login.
 	var oauth2Token *oauth2.Token
 	var err error
@@ -161,22 +161,67 @@ func (c *Config) exchangeForToken(
 		log.WithError(err).Debugln("Oauth password login result.")
 	}
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to get token: %v", ErrUnauthorized, err)
+		return "", nil, fmt.Errorf("%w: failed to get token: %v", ErrUnauthorized, err)
 	}
 
 	// For github, we need to use the access token to get the id information.
 	if c.isGithub() {
 		v, err := fetchGithubUserInfo(ctx, oauth2Config, oauth2Token, log)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
-		return string(v), nil
+		return string(v), oauth2Token, nil
 	}
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		return "", errors.New("failed to extract raw ID token")
+		return "", nil, errors.New("failed to extract raw ID token")
 	}
-	return rawIDToken, nil
+	return rawIDToken, oauth2Token, nil
+}
+
+// enrichClaimsFromUserInfo backfills claims that the ID token did not carry
+// from the provider's userinfo endpoint. Spec-compliant IdPs (e.g. the
+// Nextcloud "OIDC Identity Provider" app since 2.x) only assert profile and
+// email claims via userinfo unless the client explicitly requests them in the
+// ID token; without this fetch such logins arrive with an empty email, which
+// breaks email-keyed identity matching and custom-provider admin-email
+// verification.
+//
+// A missing or failing userinfo endpoint is non-fatal (the ID token remains
+// the source of truth); a userinfo "sub" that does not match the verified ID
+// token's "sub" is an error per OIDC Core 5.3.2 — the response must not be
+// used, as it could splice another account's attributes into this identity.
+func (c *Config) enrichClaimsFromUserInfo(
+	ctx context.Context, op *oidc.Provider, oauth2Token *oauth2.Token,
+	idTokenSubject string, cl *Claims, log *logrus.Entry,
+) error {
+	userInfo, err := op.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
+	if err != nil {
+		// Not all providers expose a userinfo endpoint; keep ID token claims.
+		log.WithError(err).Debugln("Userinfo fetch failed; using ID token claims only.")
+		return nil
+	}
+	if userInfo.Subject != idTokenSubject {
+		return fmt.Errorf("userinfo subject %q does not match ID token subject %q",
+			userInfo.Subject, idTokenSubject)
+	}
+	extra := &Claims{}
+	if err := userInfo.Claims(extra); err != nil {
+		log.WithError(err).Debugln("Failed to parse userinfo claims; using ID token claims only.")
+		return nil
+	}
+	if cl.Email == "" && userInfo.Email != "" {
+		cl.Email = userInfo.Email
+		cl.EmailVerified = userInfo.EmailVerified
+	}
+	if cl.Name == "" {
+		cl.Name = extra.Name
+	}
+	if cl.Picture == "" {
+		cl.Picture = extra.Picture
+	}
+	log.WithField("email", cl.Email).Debugln("Enriched claims from userinfo endpoint.")
+	return nil
 }
 
 func (c *Config) claims(
@@ -199,8 +244,12 @@ func (c *Config) claims(
 	log.Debugln("Exchange token or login with password.")
 
 	// Get raw ID token if necessary.
+	// __CYLONIX_MOD__ keep the oauth2 token: it authenticates the userinfo
+	// fetch below. When the caller supplies a raw ID token directly (e.g.
+	// mobile-app flows) there is no access token and no userinfo fetch.
+	var oauth2Token *oauth2.Token
 	if rawIDToken == "" {
-		rawIDToken, err = c.exchangeForToken(ctx, oauth2Config, code, username, password, log)
+		rawIDToken, oauth2Token, err = c.exchangeForToken(ctx, oauth2Config, code, username, password, log)
 		if err != nil {
 			return err
 		}
@@ -235,5 +284,15 @@ func (c *Config) claims(
 	if err := idToken.Claims(claims); err != nil {
 		return fmt.Errorf("failed to extract claims: %v", err)
 	}
+	// __BEGIN_CYLONIX_ADD__
+	// Backfill missing claims (notably email) from the userinfo endpoint.
+	// Scoped to the generic *Claims shape so provider-specific claim types
+	// (e.g. keycloak) are unaffected.
+	if cl, ok := claims.(*Claims); ok && cl.Email == "" && oauth2Token != nil {
+		if err := c.enrichClaimsFromUserInfo(ctx, op, oauth2Token, idToken.Subject, cl, log); err != nil {
+			return err
+		}
+	}
+	// __END_CYLONIX_ADD__
 	return nil
 }
